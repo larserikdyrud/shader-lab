@@ -10,26 +10,26 @@ using ID3D11Texture2D = Vortice.Direct3D11.ID3D11Texture2D;
 namespace ShaderLab.Gpu;
 
 /// <summary>
-/// Kjernepasset decode.hlsl: kopierer dekoderens NV12/P010-slice og gjør den om til lineær RGB i
-/// <see cref="FrameSrv"/> (RGBA32F, lerretsstørrelse). Skalerer med nærmeste nabo når kilden er mindre.
+/// The core pass decode.hlsl: copies the decoder's NV12/P010 slice and turns it into linear RGB in
+/// <see cref="FrameSrv"/> (RGBA32F, canvas size). Scales with nearest neighbour when the source is smaller.
 /// </summary>
 internal sealed unsafe class FrameConverter : IDisposable
 {
     [StructLayout(LayoutKind.Sequential)]
     private struct DecodeParams { public Vector4 Conv0, Conv1; public uint DstW, DstH, SrcW, SrcH; }
 
-    /// <summary>Lineær RGB for frame som sist ble konvertert.</summary>
+    /// <summary>Linear RGB for the most recently converted frame.</summary>
     public readonly ID3D11ShaderResourceView FrameSrv;
     public readonly ID3D11Texture2D FrameTexture;
 
     private readonly Device _gpu;
-    private readonly List<IDisposable> _owned = []; // egne ressurser, frigjøres i Dispose
+    private readonly List<IDisposable> _owned = []; // own resources, released in Dispose
     private readonly int _width, _height;
     private readonly ID3D11ComputeShader _decode;
     private readonly ID3D11UnorderedAccessView _frameUav;
     private readonly ID3D11Buffer _constants;
 
-    // Kopien av dekoderens frame. Lages på nytt når størrelse, format eller farge endrer seg (ny fil).
+    // The copy of the decoder's frame. Recreated when size, format or colour changes (new file).
     private ID3D11Texture2D? _plane;
     private ID3D11ShaderResourceView[] _planeViews = [];
     private (int W, int H, bool P010, AVColorSpace Space, AVColorRange Range) _planeKey;
@@ -51,7 +51,7 @@ internal sealed unsafe class FrameConverter : IDisposable
     public void Convert(HwFrame frame)
     {
         EnsurePlane(frame);
-        // Ikke Dispose: wrapperen eier ingen referanse, FFmpeg eier teksturen.
+        // Do not Dispose: the wrapper owns no reference, FFmpeg owns the texture.
         _gpu.Ctx.CopySubresourceRegion(_plane!, 0, 0, 0, 0, new ID3D11Texture2D(frame.Texture), frame.Slice,
             new Box(0, 0, 0, frame.Width, frame.Height, 1));
         _gpu.Dispatch(_decode, _width, _height, [_constants], _planeViews, _frameUav);
@@ -64,7 +64,7 @@ internal sealed unsafe class FrameConverter : IDisposable
 
         DisposePlane();
         Format videoFormat = f.P010 ? Format.P010 : Format.NV12;
-        _gpu.RequireFormat(videoFormat, FormatSupport.Texture2D | FormatSupport.ShaderLoad, "å lese videoframes i en shader");
+        _gpu.RequireFormat(videoFormat, FormatSupport.Texture2D | FormatSupport.ShaderLoad, "reading video frames in a shader");
         _plane = _gpu.Texture(videoFormat, f.Width, f.Height, BindFlags.ShaderResource);
         _planeViews =
         [

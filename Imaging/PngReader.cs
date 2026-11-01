@@ -4,8 +4,8 @@ using System.IO.Compression;
 namespace ShaderLab.Imaging;
 
 /// <summary>
-/// Minimal PNG-leser for <c>--compare</c>: 8-bit RGB eller RGBA, uten interlacing, alle fem filtertyper.
-/// Det dekker det PngWriter skriver og det vanlige verktøy lagrer. Returnerer RGB24 (alfa forkastes).
+/// Minimal PNG reader for <c>--compare</c>: 8-bit RGB or RGBA, no interlacing, all five filter types.
+/// That covers what PngWriter writes and what common tools save. Returns RGB24 (alpha is discarded).
 /// </summary>
 public static class PngReader
 {
@@ -13,7 +13,7 @@ public static class PngReader
     {
         byte[] file = File.ReadAllBytes(path);
         if (file.Length < 8 || !file.AsSpan(0, 8).SequenceEqual(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }))
-            throw new InvalidDataException($"'{path}' er ikke en PNG-fil.");
+            throw new InvalidDataException($"'{path}' is not a PNG file.");
 
         int width = 0, height = 0, channels = 0;
         using var idat = new MemoryStream();
@@ -31,7 +31,7 @@ public static class PngReader
                     channels = colorType switch { 2 => 3, 6 => 4, _ => 0 };
                     if (depth != 8 || channels == 0 || interlace != 0)
                         throw new NotSupportedException(
-                            $"'{path}': bare 8-bit RGB/RGBA uten interlacing støttes (bitdybde {depth}, fargetype {colorType}, interlace {interlace}).");
+                            $"'{path}': only 8-bit RGB/RGBA without interlacing is supported (bit depth {depth}, colour type {colorType}, interlace {interlace}).");
                     break;
                 case "IDAT":
                     idat.Write(data);
@@ -42,7 +42,7 @@ public static class PngReader
             }
             pos += 12 + length;
         }
-        if (width == 0) throw new InvalidDataException($"'{path}' mangler IHDR.");
+        if (width == 0) throw new InvalidDataException($"'{path}' has no IHDR.");
 
         idat.Position = 0;
         using var z = new ZLibStream(idat, CompressionMode.Decompress);
@@ -81,7 +81,7 @@ public static class PngReader
                 2 => b,
                 3 => (a + b) / 2,
                 4 => Paeth(a, b, c),
-                _ => throw new InvalidDataException($"Ukjent PNG-filtertype {filter}.")
+                _ => throw new InvalidDataException($"Unknown PNG filter type {filter}.")
             });
         }
     }

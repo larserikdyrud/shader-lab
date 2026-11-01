@@ -1,11 +1,11 @@
 //! name: lagfun
-//! description: Lyse spor som falmer: out = max(in, prev * decay), som ffmpeg sitt lagfun
-//! param: decay float 0.95 min=0 max=1   // hvor mye av sporet som er igjen etter én frame
+//! description: Bright trails that fade: out = max(in, prev * decay), like ffmpeg's lagfun
+//! param: decay float 0.95 min=0 max=1   // how much of the trail is left after one frame
 
-// Forskjellen fra max: gammelt lys dempes med decay for hver frame, så sporet får en hale.
-// Halen er nede i 1 % etter ln(0.01) / ln(decay) frames (0.95 → ~90 frames, 0.9 → ~44).
-// decay = 1 gir vanlig max; decay = 0 gir bare siste frame.
-// Dempingen skjer i lineært lys, så halen falmer som lys faktisk gjør.
+// The difference from max: old light is dimmed by decay every frame, so the trail gets a tail.
+// The tail is down to 1 % after ln(0.01) / ln(decay) frames (0.95 → ~90 frames, 0.9 → ~44).
+// decay = 1 gives plain max; decay = 0 gives only the last frame.
+// The dimming happens in linear light, so the tail fades the way light actually does.
 
 [numthreads(8, 8, 1)]
 void Accumulate(uint3 id : SV_DispatchThreadID)

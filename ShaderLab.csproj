@@ -9,8 +9,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <InvariantGlobalization>true</InvariantGlobalization>
-    <!-- Prosjektfilen ligger i roten, så alt med C# som ikke hører til prosjektet må holdes utenfor.
-         _*/ er lokale mapper (kladd, oppslag) som også er gitignored. -->
+    <!-- The project file is at the root, so anything with C# that is not part of the project must be kept out.
+         _*/ are local folders (scratch, reference) that are also gitignored. -->
     <DefaultItemExcludes>$(DefaultItemExcludes);_*/**;tests/**;ffmpeg/**</DefaultItemExcludes>
   </PropertyGroup>
 

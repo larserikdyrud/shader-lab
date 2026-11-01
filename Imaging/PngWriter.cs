@@ -10,8 +10,8 @@ public static class PngWriter
     private static readonly byte[] Signature = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
 
     /// <summary>
-    /// Skriver til en midlertidig fil ved siden av og bytter den inn til slutt, så en bildeviser som laster
-    /// filen på nytt (--watch, --preview-every) aldri ser et halvskrevet bilde.
+    /// Writes to a temporary file next to it and swaps it in at the end, so an image viewer that reloads
+    /// the file (--watch, --preview-every) never sees a half-written image.
     /// </summary>
     public static void Write(string path, byte[] rgb24, int width, int height, CompressionLevel level = CompressionLevel.Fastest)
     {
@@ -44,7 +44,7 @@ public static class PngWriter
     {
         using var raw = new MemoryStream(stride * height + height);
         // Filter type 0 (None) per scanline: cheapest to produce, favors throughput
-        // over file size, consistent with this tool's "decode/stack fast" priority.
+        // over file size.
         for (int y = 0; y < height; y++)
         {
             raw.WriteByte(0);

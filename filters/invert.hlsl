@@ -1,10 +1,10 @@
 //! name: invert
-//! description: Negativ av siste frame (det enkleste filteret: ingen state)
+//! description: Negative of the last frame (the simplest filter: no state)
 //! state: 0
 
-// state: 0 betyr at filteret bare ser nåværende frame; resultatet er dermed siste frame.
-// Input er lineær RGB. «1 - x» i lineært lys ser feil ut for øyet (mellomtoner blir for mørke),
-// så vi inverterer i sRGB og går tilbake til lineært. Prøv å fjerne konverteringen og se forskjellen.
+// state: 0 means the filter only sees the current frame; the result is therefore the last frame.
+// Input is linear RGB. "1 - x" in linear light looks wrong to the eye (midtones become too dark),
+// so we invert in sRGB and go back to linear. Try removing the conversion and see the difference.
 
 [numthreads(8, 8, 1)]
 void Accumulate(uint3 id : SV_DispatchThreadID)

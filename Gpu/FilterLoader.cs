@@ -6,26 +6,26 @@ namespace ShaderLab.Gpu;
 
 public enum StateInit { Zero, First, PlusInfinity, MinusInfinity }
 
-/// <summary>Én <c>//! param</c>-linje. <see cref="Default"/> har like mange komponenter som typen.</summary>
+/// <summary>One <c>//! param</c> line. <see cref="Default"/> has as many components as the type.</summary>
 public sealed record FilterParam(string Name, string Type, double[] Default, double? Min, double? Max, int Line)
 {
     public int Components => Type switch { "float2" => 2, "float3" => 3, "float4" => 4, _ => 1 };
 }
 
-/// <summary>Et filter lest fra <c>filters/&lt;navn&gt;.hlsl</c>: header (spesifikasjonen §5.3) og kildekode.</summary>
+/// <summary>A filter read from <c>filters/&lt;name&gt;.hlsl</c>: header (spec §5.3) and source code.</summary>
 public sealed record FilterInfo(
     string Name, string Description, int State, StateInit Init, IReadOnlyList<FilterParam> Params,
     string Path, string Source);
 
-/// <summary>Feil i <c>//!</c>-headeren, med fil og linje.</summary>
+/// <summary>An error in the <c>//!</c> header, with file and line.</summary>
 public sealed class FilterHeaderException(string message) : Exception(message);
 
-/// <summary>Finner, leser og kompilerer filterfiler. Kjernen setter en generert preamble foran filteret (§5.1).</summary>
+/// <summary>Finds, reads and compiles filter files. The core puts a generated preamble in front of the filter (§5.1).</summary>
 internal static class FilterLoader
 {
     private static readonly string[] Types = ["float", "float2", "float3", "float4", "int", "uint"];
 
-    // Navn som preamblen allerede bruker; en parameter med samme navn ville kollidert.
+    // Names the preamble already uses; a parameter with the same name would collide.
     private static readonly HashSet<string> Reserved =
     [
         "Input", "Frame", "StateIn0", "StateIn1", "StateOut0", "StateOut1", "Output", "FrameInfo", "Params",
@@ -34,19 +34,19 @@ internal static class FilterLoader
 
     private static readonly Regex Identifier = new("^[A-Za-z_][A-Za-z0-9_]*$");
 
-    /// <summary>Mappen med filtre: <paramref name="explicitDir"/>, ellers filters/ i repoet.</summary>
+    /// <summary>The filter folder: <paramref name="explicitDir"/>, otherwise filters/ in the repo.</summary>
     public static string FindDirectory(string? explicitDir)
     {
         if (explicitDir != null)
             return Directory.Exists(explicitDir) ? Path.GetFullPath(explicitDir)
-                : throw new DirectoryNotFoundException($"Filtermappen '{explicitDir}' finnes ikke.");
+                : throw new DirectoryNotFoundException($"The filter folder '{explicitDir}' does not exist.");
         return Paths.FindUp("filters")
-            ?? throw new DirectoryNotFoundException("Fant ikke filters/. Kjør fra repoet, eller oppgi --filters-dir.");
+            ?? throw new DirectoryNotFoundException("Could not find filters/. Run from the repo, or pass --filters-dir.");
     }
 
     public static IEnumerable<string> Files(string dir) => Directory.GetFiles(dir, "*.hlsl").OrderBy(f => f, StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Finner filteret med <c>//! name: <paramref name="name"/></c>. Prøver &lt;navn&gt;.hlsl først.</summary>
+    /// <summary>Finds the filter with <c>//! name: <paramref name="name"/></c>. Tries &lt;name&gt;.hlsl first.</summary>
     public static FilterInfo Find(string dir, string name)
     {
         string direct = Path.Combine(dir, name + ".hlsl");
@@ -61,15 +61,15 @@ internal static class FilterLoader
         {
             FilterInfo info;
             try { info = Load(file); }
-            catch (FilterHeaderException) { continue; } // feil i andre filtre skal ikke stoppe denne kjøringen
+            catch (FilterHeaderException) { continue; } // errors in other filters must not stop this run
             if (info.Name == name) return info;
             names.Add(info.Name);
         }
         throw new FilterHeaderException(
-            $"Fant ikke filteret '{name}' i {Paths.Display(dir)}. Tilgjengelige: {(names.Count > 0 ? string.Join(", ", names) : "ingen")} (se --list-filters).");
+            $"Filter '{name}' not found in {Paths.Display(dir)}. Available: {(names.Count > 0 ? string.Join(", ", names) : "none")} (see --list-filters).");
     }
 
-    /// <summary>Leser filen og headeren. Headeren er <c>//!</c>-linjene i kommentarblokken øverst i filen.</summary>
+    /// <summary>Reads the file and the header. The header is the <c>//!</c> lines in the comment block at the top of the file.</summary>
     public static FilterInfo Load(string path)
     {
         string source = File.ReadAllText(path);
@@ -84,7 +84,7 @@ internal static class FilterLoader
         {
             string line = lines[i].Trim();
             if (line.Length == 0) continue;
-            if (!line.StartsWith("//")) break; // headeren slutter ved første kodelinje
+            if (!line.StartsWith("//")) break; // the header ends at the first line of code
             if (!line.StartsWith("//!")) continue;
 
             int lineNo = i + 1;
@@ -92,74 +92,74 @@ internal static class FilterLoader
 
             string body = line[3..];
             int colon = body.IndexOf(':');
-            if (colon < 0) throw Error($"mangler ':' i '{line}' (forventet //! nøkkel: verdi)");
+            if (colon < 0) throw Error($"missing ':' in '{line}' (expected //! key: value)");
             string key = body[..colon].Trim();
             string value = StripComment(body[(colon + 1)..]);
 
             switch (key)
             {
                 case "name":
-                    if (name != null) throw Error("'name' er oppgitt to ganger");
-                    if (!Regex.IsMatch(value, "^[A-Za-z0-9_-]+$")) throw Error($"ugyldig navn '{value}' (bruk bokstaver, tall, - og _)");
+                    if (name != null) throw Error("'name' is given twice");
+                    if (!Regex.IsMatch(value, "^[A-Za-z0-9_-]+$")) throw Error($"invalid name '{value}' (use letters, digits, - and _)");
                     name = value;
                     break;
                 case "description":
                     description = (description == null ? "" : description + " ") + value;
                     break;
                 case "state":
-                    if (state != null) throw Error("'state' er oppgitt to ganger");
-                    if (!int.TryParse(value, out int s) || s is < 0 or > 2) throw Error($"state må være 0, 1 eller 2, fikk '{value}'");
+                    if (state != null) throw Error("'state' is given twice");
+                    if (!int.TryParse(value, out int s) || s is < 0 or > 2) throw Error($"state must be 0, 1 or 2, got '{value}'");
                     state = s;
                     break;
                 case "init":
-                    if (init != null) throw Error("'init' er oppgitt to ganger");
+                    if (init != null) throw Error("'init' is given twice");
                     init = value switch
                     {
                         "0" => StateInit.Zero,
                         "first" => StateInit.First,
                         "+inf" => StateInit.PlusInfinity,
                         "-inf" => StateInit.MinusInfinity,
-                        _ => throw Error($"init må være 0, first, +inf eller -inf, fikk '{value}'")
+                        _ => throw Error($"init must be 0, first, +inf or -inf, got '{value}'")
                     };
                     break;
                 case "param":
                     var p = ParseParam(value, lineNo, Error);
-                    if (parameters.Any(x => x.Name == p.Name)) throw Error($"parameteren '{p.Name}' er oppgitt to ganger");
+                    if (parameters.Any(x => x.Name == p.Name)) throw Error($"parameter '{p.Name}' is given twice");
                     parameters.Add(p);
                     break;
                 default:
-                    throw Error($"ukjent nøkkel '{key}' (gyldige: name, description, state, init, param)");
+                    throw Error($"unknown key '{key}' (valid: name, description, state, init, param)");
             }
         }
 
-        if (name == null) throw new FilterHeaderException($"{where}:1: mangler '//! name: <navn>' øverst i filen");
+        if (name == null) throw new FilterHeaderException($"{where}:1: missing '//! name: <name>' at the top of the file");
         return new FilterInfo(name, description ?? "", state ?? 1, init ?? StateInit.Zero, parameters, path, source);
     }
 
-    /// <summary>Preamble (§5.1) + <c>#line 1</c> + filterfilen, slik den sendes til kompilatoren.</summary>
+    /// <summary>Preamble (§5.1) + <c>#line 1</c> + the filter file, as sent to the compiler.</summary>
     public static string BuildSource(FilterInfo filter)
     {
         var sb = new StringBuilder();
         sb.Append("""
-            // ---- generert av kjernen (spesifikasjonen §5.1) ----
+            // ---- generated by the core (spec §5.1) ----
             #include "common.hlsli"
 
-            Texture2D<float4>   Input     : register(t0); // forrige stegs Output, eller nåværende frame i første steg (RGBA32F)
-            Texture2D<float4>   StateIn0  : register(t1); // forrige state
-            Texture2D<float4>   StateIn1  : register(t2); // ekstra state hvis //! state: 2
-            Texture2D<float4>   Frame     : register(t3); // alltid den originale framen (lineær RGB), uansett plass i kjeden
-            RWTexture2D<float4> StateOut0 : register(u0); // ny state
+            Texture2D<float4>   Input     : register(t0); // the previous step's Output, or the current frame in the first step (RGBA32F)
+            Texture2D<float4>   StateIn0  : register(t1); // previous state
+            Texture2D<float4>   StateIn1  : register(t2); // extra state if //! state: 2
+            Texture2D<float4>   Frame     : register(t3); // always the original frame (linear RGB), wherever in the chain
+            RWTexture2D<float4> StateOut0 : register(u0); // new state
             RWTexture2D<float4> StateOut1 : register(u1);
-            RWTexture2D<float4> Output    : register(u2); // det encode ser
+            RWTexture2D<float4> Output    : register(u2); // what encode sees
 
             cbuffer FrameInfo : register(b0)
             {
-                uint  FrameIndex;   // 0-basert, teller etter --stride; i Finalize = antall behandlede frames
-                uint  FrameCount;   // totalt hvis kjent, ellers 0
-                uint2 Size;         // lerretsstørrelse
-                float Time;         // sekunder fra pts, fra start av gjeldende fil; 0 hvis ukjent
-                float Dt;           // tid siden forrige frame
-                uint  FileIndex;    // hvilken inputfil
+                uint  FrameIndex;   // 0-based, counts after --stride; in Finalize = number of processed frames
+                uint  FrameCount;   // total if known, otherwise 0
+                uint2 Size;         // canvas size
+                float Time;         // seconds from pts, from the start of the current file; 0 if unknown
+                float Dt;           // time since the previous frame
+                uint  FileIndex;    // which input file
                 uint  _pad;
             };
 
@@ -170,30 +170,30 @@ internal static class FilterLoader
             foreach (var p in filter.Params) sb.Append($"    {p.Type} {p.Name};\n");
             sb.Append("};\n");
         }
-        sb.Append("// ---- slutt generert; resten er filterfilen ----\n");
+        sb.Append("// ---- end of generated code; the rest is the filter file ----\n");
         sb.Append($"#line 1 \"{Paths.Display(filter.Path)}\"\n");
         sb.Append(filter.Source);
         return sb.ToString();
     }
 
-    /// <summary>Kompilerer ett entry point. Feil peker på linjer i filterfilen; feil i preamblen merkes [kjerne].</summary>
+    /// <summary>Compiles one entry point. Errors point at lines in the filter file; errors in the preamble are marked [core].</summary>
     public static ReadOnlyMemory<byte> Compile(FilterInfo filter, string entryPoint, string coreDir)
     {
         string source = BuildSource(filter);
         string preamble = source[..(source.IndexOf("#line 1 \"", StringComparison.Ordinal))];
-        int preambleLines = preamble.Count(c => c == '\n') + 1; // + selve #line-linjen
+        int preambleLines = preamble.Count(c => c == '\n') + 1; // + the #line line itself
         return ShaderCompiler.Compile(source, entryPoint, ShaderCompiler.GeneratedName, coreDir,
             new GeneratedSource(preambleLines, filter.Path, filter.Source));
     }
 
-    /// <summary>Kompilerer <c>Finalize</c> hvis filteret har den, ellers null.</summary>
+    /// <summary>Compiles <c>Finalize</c> if the filter has one, otherwise null.</summary>
     public static ReadOnlyMemory<byte>? CompileFinalize(FilterInfo filter, string coreDir)
     {
         try { return Compile(filter, "Finalize", coreDir); }
         catch (ShaderCompileException e) when (e.MissingEntryPoint) { return null; }
     }
 
-    /// <summary>Hele kilden som sendes til kompilatoren, med linjenumre (for --dump-shader).</summary>
+    /// <summary>The whole source sent to the compiler, with line numbers (for --dump-shader).</summary>
     public static string Dump(FilterInfo filter)
     {
         string[] lines = BuildSource(filter).Split('\n');
@@ -204,7 +204,7 @@ internal static class FilterLoader
         {
             string text = lines[i].TrimEnd('\r');
             if (inUser) user++;
-            // Venstre kolonne: linje i generert kilde. Høyre: linje i filterfilen (det feilmeldinger viser).
+            // Left column: line in the generated source. Right: line in the filter file (what error messages show).
             sb.AppendLine(inUser ? $"{i + 1,4} | {user,4} | {text}" : $"{i + 1,4} |      | {text}");
             if (text.StartsWith("#line 1 \"", StringComparison.Ordinal)) inUser = true;
         }
@@ -212,8 +212,8 @@ internal static class FilterLoader
     }
 
     /// <summary>
-    /// Bytene til <c>cbuffer Params</c> etter HLSL sine pakkeregler: en variabel flyttes til neste 16-byte-register
-    /// hvis den ellers ville krysset en grense. <paramref name="overrides"/> vinner over standardverdiene.
+    /// The bytes of <c>cbuffer Params</c> following HLSL's packing rules: a variable moves to the next 16-byte register
+    /// if it would otherwise cross a boundary. <paramref name="overrides"/> win over the defaults.
     /// </summary>
     public static byte[] PackParams(FilterInfo filter, IReadOnlyDictionary<string, double[]> overrides)
     {
@@ -247,8 +247,8 @@ internal static class FilterLoader
     }
 
     /// <summary>
-    /// Tolker <c>navn:p=v,p=v</c> fra <c>-f</c>. Vektorverdier bruker også komma (<c>farge=1,0.5,0</c>), så et
-    /// ledd uten '=' hører til verdien foran.
+    /// Parses <c>name:p=v,p=v</c> from <c>-f</c>. Vector values also use commas (<c>colour=1,0.5,0</c>), so a
+    /// part without '=' belongs to the value before it.
     /// </summary>
     public static (string Name, Dictionary<string, string> Values) ParseFilterArg(string arg)
     {
@@ -265,46 +265,46 @@ internal static class FilterLoader
             {
                 last = part[..eq].Trim();
                 if (!values.TryAdd(last, part[(eq + 1)..].Trim()))
-                    throw new ArgumentException($"-f {arg}: '{last}' er oppgitt to ganger.");
+                    throw new ArgumentException($"-f {arg}: '{last}' is given twice.");
             }
             else if (last != null) values[last] += "," + part.Trim();
-            else throw new ArgumentException($"-f {arg}: forventet p=v etter ':', fikk '{part}'.");
+            else throw new ArgumentException($"-f {arg}: expected p=v after ':', got '{part}'.");
         }
         return (name, values);
     }
 
-    /// <summary>Gjør <c>-f</c>-verdiene om til tall for filterets parametere. Ukjente navn og verdier utenfor min/max gir feil.</summary>
+    /// <summary>Turns the <c>-f</c> values into numbers for the filter's parameters. Unknown names and values outside min/max are errors.</summary>
     public static Dictionary<string, double[]> ResolveOverrides(FilterInfo filter, IReadOnlyDictionary<string, string> values)
     {
         var result = new Dictionary<string, double[]>();
         foreach (var (name, text) in values)
         {
             var p = filter.Params.FirstOrDefault(x => x.Name == name) ?? throw new ArgumentException(
-                $"Filteret '{filter.Name}' har ingen parameter '{name}'. " +
-                (filter.Params.Count > 0 ? $"Parametre: {string.Join(", ", filter.Params.Select(x => x.Name))}." : "Det har ingen parametre."));
+                $"Filter '{filter.Name}' has no parameter '{name}'. " +
+                (filter.Params.Count > 0 ? $"Parameters: {string.Join(", ", filter.Params.Select(x => x.Name))}." : "It has no parameters."));
             result[name] = ParseValue(p, text, m => new ArgumentException($"-f {filter.Name}: {m}."));
         }
         return result;
     }
 
-    /// <summary>Tolker en verdi for <paramref name="p"/> (komponenter skilt med komma) og sjekker min/max.</summary>
+    /// <summary>Parses a value for <paramref name="p"/> (components separated by commas) and checks min/max.</summary>
     public static double[] ParseValue(FilterParam p, string text, Func<string, Exception> error)
     {
         string[] parts = text.Split(',');
         if (parts.Length != p.Components)
-            throw error($"'{p.Name}' er {p.Type} og trenger {p.Components} verdi(er) skilt med komma, fikk '{text}'");
+            throw error($"'{p.Name}' is {p.Type} and needs {p.Components} value(s) separated by commas, got '{text}'");
 
         var values = new double[parts.Length];
         for (int c = 0; c < parts.Length; c++)
         {
             if (!double.TryParse(parts[c], NumberStyles.Float, CultureInfo.InvariantCulture, out double x) || !double.IsFinite(x))
-                throw error($"'{parts[c]}' er ikke et tall (parameter '{p.Name}')");
+                throw error($"'{parts[c]}' is not a number (parameter '{p.Name}')");
             if (p.Type is "int" or "uint" && x != Math.Floor(x))
-                throw error($"'{p.Name}' er {p.Type}, men '{parts[c]}' er ikke et heltall");
+                throw error($"'{p.Name}' is {p.Type}, but '{parts[c]}' is not an integer");
             if (p.Type == "uint" && x < 0)
-                throw error($"'{p.Name}' er uint og kan ikke være negativ");
-            if (p.Min is double min && x < min) throw error($"{p.Name}={parts[c]} er under min={min.ToString(CultureInfo.InvariantCulture)}");
-            if (p.Max is double max && x > max) throw error($"{p.Name}={parts[c]} er over max={max.ToString(CultureInfo.InvariantCulture)}");
+                throw error($"'{p.Name}' is uint and cannot be negative");
+            if (p.Min is double min && x < min) throw error($"{p.Name}={parts[c]} is below min={min.ToString(CultureInfo.InvariantCulture)}");
+            if (p.Max is double max && x > max) throw error($"{p.Name}={parts[c]} is above max={max.ToString(CultureInfo.InvariantCulture)}");
             values[c] = x;
         }
         return values;
@@ -313,29 +313,29 @@ internal static class FilterLoader
     private static FilterParam ParseParam(string value, int lineNo, Func<string, FilterHeaderException> error)
     {
         string[] tokens = value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-        if (tokens.Length < 3) throw error($"forventet 'param: <navn> <type> <standard> [min=] [max=]', fikk '{value}'");
+        if (tokens.Length < 3) throw error($"expected 'param: <name> <type> <default> [min=] [max=]', got '{value}'");
 
         string name = tokens[0], type = tokens[1];
-        if (!Identifier.IsMatch(name)) throw error($"ugyldig parameternavn '{name}'");
-        if (Reserved.Contains(name)) throw error($"parameternavnet '{name}' er brukt av kjernen");
-        if (!Types.Contains(type)) throw error($"ukjent type '{type}' (gyldige: {string.Join(", ", Types)})");
+        if (!Identifier.IsMatch(name)) throw error($"invalid parameter name '{name}'");
+        if (Reserved.Contains(name)) throw error($"the parameter name '{name}' is used by the core");
+        if (!Types.Contains(type)) throw error($"unknown type '{type}' (valid: {string.Join(", ", Types)})");
 
         double? min = null, max = null;
         foreach (string option in tokens.Skip(3))
         {
             string[] kv = option.Split('=', 2);
             if (kv.Length != 2 || kv[0] is not ("min" or "max"))
-                throw error($"ukjent valg '{option}' (gyldige: min=, max=)");
+                throw error($"unknown option '{option}' (valid: min=, max=)");
             if (!double.TryParse(kv[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double x))
-                throw error($"'{kv[1]}' er ikke et tall i '{option}'");
+                throw error($"'{kv[1]}' is not a number in '{option}'");
             if (kv[0] == "min") min = x; else max = x;
         }
 
         var p = new FilterParam(name, type, [], min, max, lineNo);
-        return p with { Default = ParseValue(p, tokens[2], m => error("standardverdi: " + m)) };
+        return p with { Default = ParseValue(p, tokens[2], m => error("default value: " + m)) };
     }
 
-    /// <summary>Fjerner en etterfølgende <c>// kommentar</c> og mellomrom.</summary>
+    /// <summary>Removes a trailing <c>// comment</c> and whitespace.</summary>
     private static string StripComment(string value)
     {
         int comment = value.IndexOf("//", StringComparison.Ordinal);

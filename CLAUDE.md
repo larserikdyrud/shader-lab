@@ -1,1 +1,1 @@
-Les AGENTS.md.
+Read AGENTS.md.

@@ -4,22 +4,20 @@ obj/
 *.user
 *.suo
 
-# FFmpeg-DLL-er hentes med get-ffmpeg.ps1
+# FFmpeg DLLs are fetched with get-ffmpeg.ps1
 ffmpeg/
 
-# Lokale mapper (kladd, oppslag) som ikke hører til prosjektet
+# Local folders (scratch, reference) that are not part of the project
 _*/
 
-# Utdata fra øvingskjøringer
-ut*.png
+# Output from practice runs
+out*.png
+out*.mp4
+*.png.tmp
 
-# Testklipp lages med tests/make-clips.ps1; bare dot.mp4 ligger i repoet
+# Test clips are made with tests/make-clips.ps1; only dot.mp4 is in the repo
 tests/clips/*
 !tests/clips/dot.mp4
 
-# Faktiske bilder fra tests/run-tests.ps1
+# Actual images from tests/run-tests.ps1
 tests/out/
-
-# Video fra øvingskjøringer
-ut*.mp4
-*.png.tmp

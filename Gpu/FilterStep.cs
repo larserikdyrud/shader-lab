@@ -6,12 +6,12 @@ using ID3D11Texture2D = Vortice.Direct3D11.ID3D11Texture2D;
 namespace ShaderLab.Gpu;
 
 /// <summary>
-/// Ett filter i kjeden: egne state-teksturer (ping-pong), egen Output og egen <c>cbuffer Params</c>.
-/// Samme filter kan stå flere ganger i en kjede med ulike parametere; hvert steg er uavhengig.
+/// One filter in the chain: its own state textures (ping-pong), its own Output and its own <c>cbuffer Params</c>.
+/// The same filter can appear several times in a chain with different parameters; each step is independent.
 /// </summary>
 internal sealed unsafe class FilterStep : IDisposable
 {
-    /// <summary>Én state-tekstur (StateIn/StateOut k) i to eksemplarer: filteret leser [cur] og skriver [1 - cur].</summary>
+    /// <summary>One state texture (StateIn/StateOut k) in two copies: the filter reads [cur] and writes [1 - cur].</summary>
     private sealed record StateSlot(ID3D11Texture2D[] Tex, ID3D11ShaderResourceView[] Srv, ID3D11UnorderedAccessView[] Uav);
 
     public readonly FilterInfo Filter;
@@ -29,7 +29,7 @@ internal sealed unsafe class FilterStep : IDisposable
     private int _current;
     private bool _started;
 
-    /// <param name="paramBytes">Innholdet i <c>cbuffer Params</c>, fra <see cref="FilterLoader.PackParams"/>.</param>
+    /// <param name="paramBytes">The contents of <c>cbuffer Params</c>, from <see cref="FilterLoader.PackParams"/>.</param>
     public FilterStep(Device gpu, int width, int height, FilterInfo filter, byte[] paramBytes,
         ReadOnlyMemory<byte> accumulate, ReadOnlyMemory<byte>? finalize)
     {
@@ -54,7 +54,7 @@ internal sealed unsafe class FilterStep : IDisposable
             _params = Own(gpu.D3D.CreateBuffer(new BufferDescription((uint)paramBytes.Length, BindFlags.ConstantBuffer)));
             fixed (byte* p = paramBytes) gpu.Ctx.UpdateSubresource(_params, 0, null, (nint)p, 0, 0);
 
-            // init: 0 / +inf / -inf fylles nå. init: first må vente til stegets første Input finnes (se Accumulate).
+            // init: 0 / +inf / -inf are filled now. init: first must wait until the step's first Input exists (see Accumulate).
             float v = filter.Init switch { StateInit.PlusInfinity => float.PositiveInfinity, StateInit.MinusInfinity => float.NegativeInfinity, _ => 0f };
             foreach (var slot in _state)
                 gpu.Ctx.ClearUnorderedAccessView(slot.Uav[_current], new Color4(v, v, v, v));
@@ -68,11 +68,11 @@ internal sealed unsafe class FilterStep : IDisposable
 
     public bool HasFinalize => _finalize != null;
 
-    /// <summary>Kjører Accumulate for én frame. <paramref name="input"/> er forrige stegs Output, eller Frame for første steg.</summary>
+    /// <summary>Runs Accumulate for one frame. <paramref name="input"/> is the previous step's Output, or Frame for the first step.</summary>
     public void Accumulate(ID3D11Buffer frameInfo, ID3D11Texture2D inputTex, ID3D11ShaderResourceView input, ID3D11ShaderResourceView frame)
     {
-        // init: first = stegets første Input er startverdien. For steg 2+ er det forrige stegs Output ved frame 0,
-        // som først finnes nå; derfor gjøres dette her og ikke i konstruktøren.
+        // init: first = the step's first Input is the starting value. For step 2+ that is the previous step's Output at frame 0,
+        // which only exists now; that is why this happens here and not in the constructor.
         if (!_started && Filter.Init == StateInit.First)
             foreach (var slot in _state)
                 _gpu.Ctx.CopyResource(slot.Tex[_current], inputTex);
@@ -81,7 +81,7 @@ internal sealed unsafe class FilterStep : IDisposable
         Run(_accumulate, frameInfo, input, frame);
     }
 
-    /// <summary>Kjører Finalize hvis filteret har den. Returnerer false hvis ikke (Output står da urørt).</summary>
+    /// <summary>Runs Finalize if the filter has one. Returns false otherwise (Output is then left untouched).</summary>
     public bool Finalize(ID3D11Buffer frameInfo, ID3D11ShaderResourceView input, ID3D11ShaderResourceView frame)
     {
         if (_finalize == null) return false;
@@ -89,7 +89,7 @@ internal sealed unsafe class FilterStep : IDisposable
         return true;
     }
 
-    /// <summary>Ett pass: leser StateIn [_current], skriver StateOut [neste] og Output, og bytter.</summary>
+    /// <summary>One pass: reads StateIn [_current], writes StateOut [next] and Output, and swaps.</summary>
     private void Run(ID3D11ComputeShader shader, ID3D11Buffer frameInfo, ID3D11ShaderResourceView input, ID3D11ShaderResourceView frame)
     {
         int next = 1 - _current;

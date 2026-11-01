@@ -1,11 +1,11 @@
 //! name: mean
-//! description: Gjennomsnitt per piksel over hele klippet (fjerner støy og alt som beveger seg)
+//! description: Average per pixel over the whole clip (removes noise and everything that moves)
 
-// State er summen av alle frames. RGBA32F holder summen presist langt forbi det et klipp trenger
-// (24 bit mantisse: 1/255-presisjon helt opp til ~65 000 frames med hvitt).
-// Snittet regnes i lineært lys, så det blir fysisk riktig: som én lang eksponering med ND-filter.
+// The state is the sum of all frames. RGBA32F keeps the sum precise far beyond what a clip needs
+// (24-bit mantissa: 1/255 precision up to about 65 000 frames of white).
+// The average is computed in linear light, so it is physically correct: like one long exposure with an ND filter.
 //
-// Finalize kjøres én gang etter siste frame. Der er FrameIndex = antall behandlede frames.
+// Finalize runs once after the last frame. There, FrameIndex = the number of processed frames.
 
 [numthreads(8, 8, 1)]
 void Accumulate(uint3 id : SV_DispatchThreadID)
@@ -14,7 +14,7 @@ void Accumulate(uint3 id : SV_DispatchThreadID)
 
     float4 sum = StateIn0[id.xy] + Input[id.xy];
     StateOut0[id.xy] = sum;
-    Output[id.xy]    = sum / (FrameIndex + 1); // snitt så langt, så Output alltid er et gyldig bilde
+    Output[id.xy]    = sum / (FrameIndex + 1); // average so far, so Output is always a valid image
 }
 
 [numthreads(8, 8, 1)]
@@ -24,5 +24,5 @@ void Finalize(uint3 id : SV_DispatchThreadID)
 
     float4 sum = StateIn0[id.xy];
     Output[id.xy]    = sum / max(FrameIndex, 1);
-    StateOut0[id.xy] = sum; // state bevares; ikke nødvendig her, men god vane
+    StateOut0[id.xy] = sum; // keep the state; not needed here, but a good habit
 }

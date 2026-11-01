@@ -1,12 +1,12 @@
 namespace ShaderLab.Watch;
 
 /// <summary>
-/// Overvåker filterfilene i kjeden og shaders/core for --watch. FileSystemWatcher-hendelser kommer på en annen tråd,
-/// så de bare noterer hva som endret seg; all GPU-jobb skjer på hovedtråden etter <see cref="WaitForChange"/>.
+/// Watches the filter files in the chain and shaders/core for --watch. FileSystemWatcher events arrive on another thread,
+/// so they only note what changed; all GPU work happens on the main thread after <see cref="WaitForChange"/>.
 /// </summary>
 internal sealed class HotReload : IDisposable
 {
-    // Editorer skriver ofte filen flere ganger (eller via en midlertidig fil og rename); vent til det har roet seg.
+    // Editors often write the file several times (or via a temporary file and rename); wait until it has settled.
     private static readonly TimeSpan Debounce = TimeSpan.FromMilliseconds(200);
 
     private readonly HashSet<string> _filterPaths = new(StringComparer.OrdinalIgnoreCase);
@@ -25,8 +25,8 @@ internal sealed class HotReload : IDisposable
     }
 
     /// <summary>
-    /// Blokkerer til en av filterfilene eller noe i shaders/core er endret og har vært i ro i 200 ms.
-    /// Returnerer filene som endret seg, eller null hvis <paramref name="cancelled"/> blir sann først.
+    /// Blocks until one of the filter files or something in shaders/core has changed and been quiet for 200 ms.
+    /// Returns the files that changed, or null if <paramref name="cancelled"/> becomes true first.
     /// </summary>
     public IReadOnlyList<string>? WaitForChange(Func<bool> cancelled)
     {

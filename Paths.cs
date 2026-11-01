@@ -1,11 +1,11 @@
 namespace ShaderLab;
 
-/// <summary>Finner mapper i repoet (ffmpeg/, shaders/, filters/) både ved <c>dotnet run</c> og når exe-en kjøres fra bin/.</summary>
+/// <summary>Finds folders in the repo (ffmpeg/, shaders/, filters/) both with <c>dotnet run</c> and when the exe runs from bin/.</summary>
 internal static class Paths
 {
     /// <summary>
-    /// Leter etter <paramref name="relative"/> i arbeidsmappen og oppover, og deretter oppover fra exe-en.
-    /// Returnerer full sti til første mappe som finnes og der <paramref name="accept"/> (hvis gitt) er sann, ellers null.
+    /// Looks for <paramref name="relative"/> in the working directory and upwards, then upwards from the exe.
+    /// Returns the full path of the first folder that exists and where <paramref name="accept"/> (if given) is true, otherwise null.
     /// </summary>
     public static string? FindUp(string relative, Func<string, bool>? accept = null)
     {
@@ -18,7 +18,7 @@ internal static class Paths
         return null;
     }
 
-    /// <summary>Kort sti for meldinger: relativ til arbeidsmappen når filen ligger under den.</summary>
+    /// <summary>Short path for messages: relative to the working directory when the file is below it.</summary>
     public static string Display(string path)
     {
         string relative = Path.GetRelativePath(Directory.GetCurrentDirectory(), path);

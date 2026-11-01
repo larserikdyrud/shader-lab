@@ -1,16 +1,16 @@
 //! name: max
-//! description: Lyseste verdi per kanal over hele klippet (lyn, stjernespor, lysmaling)
+//! description: Brightest value per channel over the whole clip (lightning, star trails, light painting)
 
-// Grunnmønsteret for alle filtre med state:
-//   les forrige state (StateIn0) og nåværende frame (Input), regn ut ny state,
-//   skriv den til StateOut0 (neste frame ser den som StateIn0), og skriv det som skal vises til Output.
-// state: 1 og init: 0 er standard, så de trengs ikke i headeren. Lineær RGB er aldri negativ, så 0 er en trygg start.
-// max gir samme resultat i lineær RGB og i sRGB, fordi transferkurven er monoton.
+// The basic pattern for every filter with state:
+//   read the previous state (StateIn0) and the current frame (Input), compute the new state,
+//   write it to StateOut0 (the next frame sees it as StateIn0), and write what should be shown to Output.
+// state: 1 and init: 0 are the defaults, so they are not needed in the header. Linear RGB is never negative, so 0 is a safe start.
+// max gives the same result in linear RGB and in sRGB, because the transfer curve is monotonic.
 
 [numthreads(8, 8, 1)]
 void Accumulate(uint3 id : SV_DispatchThreadID)
 {
-    if (any(id.xy >= Size)) return; // lerretet er sjelden et multiplum av 8
+    if (any(id.xy >= Size)) return; // the canvas is rarely a multiple of 8
 
     float4 m = max(StateIn0[id.xy], Input[id.xy]);
     StateOut0[id.xy] = m;

@@ -1,10 +1,10 @@
 //! name: grayscale
-//! description: Siste frame i gråtoner (luminans), med valgfri blanding mot farge
+//! description: The last frame in grayscale (luminance), with optional blending towards colour
 //! state: 0
-//! param: amount float 1 min=0 max=1   // 1 = helt grå, 0 = original
+//! param: amount float 1 min=0 max=1   // 1 = fully gray, 0 = original
 
-// Luminans må regnes av lineær RGB med vektene for primærfargene (BT.709: 0.2126, 0.7152, 0.0722).
-// Grønt teller mest fordi øyet er mest følsomt for grønt. Luma() ligger i common.hlsli.
+// Luminance must be computed from linear RGB with the weights for the primaries (BT.709: 0.2126, 0.7152, 0.0722).
+// Green counts most because the eye is most sensitive to green. Luma() lives in common.hlsli.
 
 [numthreads(8, 8, 1)]
 void Accumulate(uint3 id : SV_DispatchThreadID)

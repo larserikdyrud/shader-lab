@@ -1,23 +1,23 @@
 //! name: blend
-//! description: Legger frame på frame med en blandingsmodus: 0 add, 1 screen, 2 lighten, 3 multiply
+//! description: Layers frame on frame with a blend mode: 0 add, 1 screen, 2 lighten, 3 multiply
 //! param: mode    uint  2   min=0 max=3
-//! param: opacity float 0.1 min=0 max=1   // hvor mye hver ny frame bidrar
+//! param: opacity float 0.1 min=0 max=1   // how much each new frame contributes
 
-// Hver frame blandes inn i det som er samlet opp så langt: result = lerp(a, Blend(a, b), opacity).
-// Alle modusene regner i lineært lys, der «add» er fysisk riktig: to lys oppå hverandre er summen.
-//   add:      a + b         Vokser med antall frames: N frames gir ca. a + N·opacity·b. Bruk opacity ≈ 1/N.
-//                           Verdier over 1.0 er lov i state; encode klipper først til slutt.
-//   screen:   1-(1-a)(1-b)  Som add, men nærmer seg 1.0 i stedet for å gå over. Blir også hvitt med høy opacity.
-//   lighten:  max(a, b)     Standard. Lyse ting gir en myk glød som bygger seg opp; opacity 1 er det samme som max.
-//   multiply: a * b         Mørkner for hver frame; med mange frames går alt som ikke er hvitt mot svart.
-// Frame 0 tas som den er, så resultatet starter på første bilde og ikke på svart.
+// Each frame is blended into what has been accumulated so far: result = lerp(a, Blend(a, b), opacity).
+// All modes work in linear light, where "add" is physically correct: two lights on top of each other are the sum.
+//   add:      a + b         Grows with the number of frames: N frames give about a + N·opacity·b. Use opacity ≈ 1/N.
+//                           Values above 1.0 are allowed in state; encode clips only at the very end.
+//   screen:   1-(1-a)(1-b)  Like add, but approaches 1.0 instead of going above. Also turns white with high opacity.
+//   lighten:  max(a, b)     Default. Bright things give a soft glow that builds up; opacity 1 is the same as max.
+//   multiply: a * b         Darkens every frame; with many frames everything that is not white goes towards black.
+// Frame 0 is taken as is, so the result starts at the first image and not at black.
 
 float3 Blend(float3 a, float3 b)
 {
     switch (mode)
     {
         case 0:  return a + b;
-        case 1:  return 1 - (1 - saturate(a)) * (1 - saturate(b)); // screen er bare definert for 0..1
+        case 1:  return 1 - (1 - saturate(a)) * (1 - saturate(b)); // screen is only defined for 0..1
         case 2:  return max(a, b);
         default: return a * b;
     }

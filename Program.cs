@@ -1,4 +1,4 @@
-// shaderlab - video → ffmpeg (D3D11VA) → en kjede av HLSL compute-filtre fra filters/ → ett PNG (og eventuelt video). Se docs/shader-lab-spec.md.
+// shaderlab - video → ffmpeg (D3D11VA) → a chain of HLSL compute filters from filters/ → one PNG (and optionally video). See docs/shader-lab-spec.md.
 
 using System.Diagnostics;
 using System.Globalization;
@@ -8,7 +8,7 @@ using ShaderLab.Imaging;
 using ShaderLab.Video;
 using ShaderLab.Watch;
 
-Console.OutputEncoding = System.Text.Encoding.UTF8; // æøå og § også når utdata går gjennom en pipe
+Console.OutputEncoding = System.Text.Encoding.UTF8; // →, × and other symbols also when output goes through a pipe
 
 var inputs = new List<string>();
 var filterArgs = new List<string>();
@@ -47,14 +47,14 @@ try
             case "--ffmpeg-dir": ffmpegDir = Value(args, ref i); break;
             case "--filters-dir": filtersDir = Value(args, ref i); break;
             default:
-                if (args[i].StartsWith('-')) throw new ArgumentException($"Ukjent opsjon '{args[i]}' (se --help).");
+                if (args[i].StartsWith('-')) throw new ArgumentException($"Unknown option '{args[i]}' (see --help).");
                 inputs.Add(args[i]);
                 break;
         }
     }
 
     string coreDir = Paths.FindUp(Path.Combine("shaders", "core"))
-        ?? throw new DirectoryNotFoundException("Fant ikke shaders/core. Kjør fra repoet (dotnet run).");
+        ?? throw new DirectoryNotFoundException("Could not find shaders/core. Run from the repo (dotnet run).");
     string filterDir = FilterLoader.FindDirectory(filtersDir);
 
     if (listFilters) return ListFilters(filterDir, coreDir);
@@ -64,16 +64,16 @@ try
         return 0;
     }
 
-    if (inputs.Count == 0) throw new ArgumentException("Ingen inputfiler (se --help).");
-    if (output == null) throw new ArgumentException("Mangler -o <ut.png>.");
-    if (filterArgs.Count == 0) throw new ArgumentException("Mangler -f <filter> (se --list-filters).");
-    if (stride < 1) throw new ArgumentException("--stride må være minst 1.");
-    if (maxFrames is < 1) throw new ArgumentException("--max-frames må være minst 1.");
-    if (previewEvery is < 1) throw new ArgumentException("--preview-every må være minst 1.");
+    if (inputs.Count == 0) throw new ArgumentException("No input files (see --help).");
+    if (output == null) throw new ArgumentException("Missing -o <out.png>.");
+    if (filterArgs.Count == 0) throw new ArgumentException("Missing -f <filter> (see --list-filters).");
+    if (stride < 1) throw new ArgumentException("--stride must be at least 1.");
+    if (maxFrames is < 1) throw new ArgumentException("--max-frames must be at least 1.");
+    if (previewEvery is < 1) throw new ArgumentException("--preview-every must be at least 1.");
     foreach (var path in inputs)
-        if (!File.Exists(path)) throw new ArgumentException($"Finner ikke inputfilen '{path}'.");
+        if (!File.Exists(path)) throw new ArgumentException($"Input file '{path}' not found.");
 
-    // Kjeden: ett steg per -f, i rekkefølge. Headerne leses på nytt ved hver kjøring (--watch).
+    // The chain: one step per -f, in order. The headers are read again on every run (--watch).
     var chainArgs = new List<(string Path, Dictionary<string, string> Values, string Text)>();
     foreach (string arg in filterArgs)
     {
@@ -85,7 +85,7 @@ try
         }
         catch (FilterHeaderException) when (watch && File.Exists(Path.Combine(filterDir, name + ".hlsl")))
         {
-            path = Path.Combine(filterDir, name + ".hlsl"); // headerfeilen vises ved første kjøring; så venter vi på retting
+            path = Path.Combine(filterDir, name + ".hlsl"); // the header error is shown on the first run; then we wait for a fix
         }
         chainArgs.Add((path, values, arg));
     }
@@ -96,20 +96,20 @@ try
     var infos = inputs.Select(Decoder.Probe).ToList();
     int width = infos.Max(v => v.Width), height = infos.Max(v => v.Height);
 
-    // FrameCount til shaderen: --max-frames hvis det er mindre, ellers containerens anslag (etter stride); 0 hvis ukjent.
+    // FrameCount for the shader: --max-frames if smaller, otherwise the container's estimate (after stride); 0 if unknown.
     long estimate = infos.All(v => v.FrameEstimate > 0) ? infos.Sum(v => (v.FrameEstimate + stride - 1) / stride) : 0;
     long frameCount = maxFrames is long n ? (estimate > 0 ? Math.Min(n, estimate) : n) : estimate;
-    // Video ut får første inputs bildefrekvens, delt på stride (30 hvis ukjent).
+    // Video out gets the first input's frame rate, divided by stride (30 if unknown).
     double videoFps = (infos[0].FrameRate > 0 ? infos[0].FrameRate : 30) / stride;
 
-    Console.WriteLine($"Lerret: {width}x{height}, stride={stride}" +
-        (maxFrames != null ? $", maks {maxFrames} frames" : "") + (frameCount > 0 ? $", FrameCount={frameCount}" : ", FrameCount ukjent (0)"));
-    Console.WriteLine($"Kjede: {string.Join(" → ", chainArgs.Select(c => c.Text))}");
+    Console.WriteLine($"Canvas: {width}x{height}, stride={stride}" +
+        (maxFrames != null ? $", max {maxFrames} frames" : "") + (frameCount > 0 ? $", FrameCount={frameCount}" : ", FrameCount unknown (0)"));
+    Console.WriteLine($"Chain: {string.Join(" → ", chainArgs.Select(c => c.Text))}");
     if (videoOut != null && normalize)
-        Console.WriteLine("Merk: --normalize gjelder bare PNG-en og forhåndsvisningen, ikke videoen (den ville flimret); videoen bruker --exposure.");
+        Console.WriteLine("Note: --normalize only applies to the PNG and the preview, not the video (it would flicker); the video uses --exposure.");
 
     using var gpu = new Device(adapter);
-    bool cancelled = false; // settes av Ctrl+C i --watch
+    bool cancelled = false; // set by Ctrl+C in --watch
 
     if (!watch)
     {
@@ -117,7 +117,7 @@ try
         return 0;
     }
 
-    // --watch: kjør, og kjør på nytt hver gang et filter i kjeden eller shaders/core endres. Ctrl+C avslutter.
+    // --watch: run, and run again every time a filter in the chain or shaders/core changes. Ctrl+C exits.
     Console.CancelKeyPress += (_, e) => { e.Cancel = true; cancelled = true; };
     using var reload = new HotReload(chainArgs.Select(c => c.Path), coreDir);
     string watched = string.Join(", ", chainArgs.Select(c => Paths.Display(c.Path)).Distinct());
@@ -125,17 +125,17 @@ try
     TryRun();
     while (true)
     {
-        Console.WriteLine($"Venter på endringer i {watched} og {Paths.Display(coreDir)}/ (Ctrl+C avslutter) ...");
+        Console.WriteLine($"Waiting for changes in {watched} and {Paths.Display(coreDir)}/ (Ctrl+C exits) ...");
         var changed = reload.WaitForChange(() => cancelled);
         if (changed == null) break;
         Console.WriteLine();
-        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Endret: {string.Join(", ", changed)}");
+        Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Changed: {string.Join(", ", changed)}");
         TryRun();
     }
-    Console.WriteLine("Avslutter.");
+    Console.WriteLine("Exiting.");
     return 0;
 
-    // Én kjøring i --watch: feil i et filter skrives ut, og forrige bilde blir stående urørt.
+    // One run in --watch: errors in a filter are printed, and the previous image is left untouched.
     void TryRun()
     {
         try
@@ -145,15 +145,15 @@ try
         catch (Exception e) when (e is FilterHeaderException or ShaderCompileException or ArgumentException)
         {
             Console.WriteLine(e.Message);
-            Console.WriteLine($"Ikke kjørt; {output} er urørt.");
+            Console.WriteLine($"Not run; {output} is untouched.");
         }
         catch (OperationCanceledException) when (cancelled)
         {
-            Console.WriteLine("Avbrutt.");
+            Console.WriteLine("Cancelled.");
         }
     }
 
-    // Leser filtrene på nytt (header og parametere kan ha endret seg), kjører hele klippet og skriver PNG (og video).
+    // Reads the filters again (header and parameters may have changed), runs the whole clip and writes the PNG (and video).
     void RunOnce(Device gpu)
     {
         var chain = chainArgs.Select(c =>
@@ -183,7 +183,7 @@ try
             total += frames;
             Console.WriteLine($"  {Path.GetFileName(inputs[f])}: {infos[f].Width}x{infos[f].Height} {infos[f].CodecName}, {frames} frames");
         }
-        if (total == 0) throw new InvalidOperationException("Ingen frames ble dekodet.");
+        if (total == 0) throw new InvalidOperationException("No frames were decoded.");
 
         video?.Close();
         pipeline.Finish();
@@ -191,41 +191,41 @@ try
         PngWriter.Write(output, pipeline.ReadRgb24(scale), width, height);
 
         double seconds = sw.Elapsed.TotalSeconds;
-        Console.WriteLine($"{total} frames på {seconds:F2} s ({total / Math.Max(seconds, 0.001):F0} fps){note} -> {output}" +
-            (video != null ? $", {video.Frames} frames video -> {videoOut}" : ""));
+        Console.WriteLine($"{total} frames in {seconds:F2} s ({total / Math.Max(seconds, 0.001):F0} fps){note} -> {output}" +
+            (video != null ? $", {video.Frames} frames of video -> {videoOut}" : ""));
     }
 
-    // Encode: lineær × skala → sRGB. Normalisering først (maks → 1.0), så eksponering (2^stopp).
+    // Encode: linear × scale → sRGB. Normalization first (max → 1.0), then exposure (2^stops).
     (float Scale, string Note) EncodeScale(Pipeline pipeline)
     {
         double scale = Math.Pow(2, exposure);
-        string note = exposure != 0 ? $", eksponering {exposure:+0.##;-0.##} stopp" : "";
+        string note = exposure != 0 ? $", exposure {exposure:+0.##;-0.##} stops" : "";
         if (normalize)
         {
-            // Under 1e-5 (langt under ett 8-bits trinn) er det bare avrundingsstøy; å forsterke den gir et falskt bilde.
+            // Below 1e-5 (far below one 8-bit step) it is only rounding noise; amplifying it gives a false image.
             const float BlackLimit = 1e-5f;
             float max = pipeline.MaxValue();
             if (max >= BlackLimit) scale /= max;
-            note += max >= BlackLimit ? $", normalisert (maks var {max:G4})" : $", normalisering hoppet over (maks {max:G2}, bildet er svart)";
+            note += max >= BlackLimit ? $", normalized (max was {max:G4})" : $", normalization skipped (max {max:G2}, the image is black)";
         }
         return ((float)scale, note);
     }
 }
 catch (Exception e) when (e is ArgumentException or FormatException or FilterHeaderException)
 {
-    Console.Error.WriteLine("Feil: " + e.Message);
+    Console.Error.WriteLine("Error: " + e.Message);
     return 2;
 }
 catch (Exception e)
 {
-    Console.Error.WriteLine("Feil: " + e.Message);
+    Console.Error.WriteLine("Error: " + e.Message);
     return 1;
 }
 
-// Viser alle filtre med header og om de kompilerer. Trenger verken GPU eller ffmpeg. Exit 1 hvis noe feiler.
+// Shows all filters with their header and whether they compile. Needs neither GPU nor ffmpeg. Exit 1 if anything fails.
 static int ListFilters(string filterDir, string coreDir)
 {
-    Console.WriteLine($"Filtre i {Paths.Display(filterDir)}:");
+    Console.WriteLine($"Filters in {Paths.Display(filterDir)}:");
     int failures = 0;
     foreach (string file in FilterLoader.Files(filterDir))
     {
@@ -246,7 +246,7 @@ static int ListFilters(string filterDir, string coreDir)
         catch (Exception e) when (e is FilterHeaderException or ShaderCompileException)
         {
             failures++;
-            Console.WriteLine($"  FEIL {Path.GetFileName(file)}:");
+            Console.WriteLine($"  FAILED {Path.GetFileName(file)}:");
             foreach (string line in e.Message.Split('\n')) Console.WriteLine("       " + line.TrimEnd());
         }
     }
@@ -255,14 +255,14 @@ static int ListFilters(string filterDir, string coreDir)
     static string? Num(double? d) => d?.ToString("0.######", CultureInfo.InvariantCulture);
 }
 
-// Sammenligner to PNG-er kanal for kanal. Exit 0 hvis største avvik er innenfor toleransen, ellers 1.
+// Compares two PNGs channel by channel. Exit 0 if the largest difference is within the tolerance, otherwise 1.
 static int Compare(string pathA, string pathB, int tolerance)
 {
     var (a, wa, ha) = PngReader.Read(pathA);
     var (b, wb, hb) = PngReader.Read(pathB);
     if (wa != wb || ha != hb)
     {
-        Console.WriteLine($"FEIL: ulik størrelse, {wa}x{ha} mot {wb}x{hb}");
+        Console.WriteLine($"FAILED: different size, {wa}x{ha} vs {wb}x{hb}");
         return 1;
     }
 
@@ -274,46 +274,46 @@ static int Compare(string pathA, string pathB, int tolerance)
         if (d > tolerance && over++ == 0) (firstX, firstY) = (i / 3 % wa, i / 3 / wa);
     }
     Console.WriteLine(over == 0
-        ? $"OK: maks avvik {maxDiff}/255 (toleranse {tolerance})"
-        : $"FEIL: maks avvik {maxDiff}/255, {over} kanaler over toleransen {tolerance}, første ved ({firstX},{firstY})");
+        ? $"OK: max difference {maxDiff}/255 (tolerance {tolerance})"
+        : $"FAILED: max difference {maxDiff}/255, {over} channels above tolerance {tolerance}, first at ({firstX},{firstY})");
     return over == 0 ? 0 : 1;
 }
 
 static string Value(string[] args, ref int i) =>
-    i + 1 < args.Length ? args[++i] : throw new ArgumentException($"{args[i]} trenger en verdi.");
+    i + 1 < args.Length ? args[++i] : throw new ArgumentException($"{args[i]} needs a value.");
 
 static double Number(string[] args, ref int i, bool integer = true)
 {
     string option = args[i], text = Value(args, ref i);
     if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double v) || !double.IsFinite(v)
         || (integer && v != Math.Floor(v)))
-        throw new ArgumentException($"{option} trenger {(integer ? "et heltall" : "et tall")}, fikk '{text}'.");
+        throw new ArgumentException($"{option} needs {(integer ? "an integer" : "a number")}, got '{text}'.");
     return v;
 }
 
 static void PrintUsage() => Console.WriteLine("""
-    shaderlab - kjør et HLSL compute-filter over alle frames i en video og skriv ett PNG
+    shaderlab - run HLSL compute filters over every frame of a video and write one PNG
 
-    Bruk:
-      shaderlab <input...> -o <ut.png> -f <filter[:p=v,p=v]> [-f <filter> ...] [opsjoner]
+    Usage:
+      shaderlab <input...> -o <out.png> -f <filter[:p=v,p=v]> [-f <filter> ...] [options]
       shaderlab --list-filters
-      shaderlab --compare <a.png> <b.png> [--tolerance <n>]   (exit 0 hvis maks avvik ≤ n/255, standard 2)
+      shaderlab --compare <a.png> <b.png> [--tolerance <n>]   (exit 0 if max difference ≤ n/255, default 2)
 
-    Opsjoner:
-      -o, --output <sti>        PNG som skrives (påkrevd)
-      -f, --filter <navn[:p=v]> Filter med parametere. Flere -f gir en kjede: hvert steg får forrige stegs
-                                Output som Input. Eks: -f diff:gain=4 -f lagfun:decay=0.9
-          --list-filters        Vis filtrene i filters/ med parametere, og sjekk at de kompilerer
-          --dump-shader <navn>  Skriv ut hele kilden som kompileres (preamble + filter) med linjenumre
-          --stride <n>          Hver n-te frame (standard 1 = alle)
-          --max-frames <n>      Stopp etter n behandlede frames (rask øving)
-          --preview-every <n>   Skriv -o-bildet underveis hver n-te frame (bildeviseren oppdateres mens det kjører)
-          --video-out <fil.mp4> Skriv Output for hver frame som video (krever ffmpeg med libx264 på PATH)
-          --exposure <stopp>    Eksponering før encode: lineær × 2^stopp (standard 0)
-          --normalize           Skaler slik at største verdi i R/G/B blir 1.0 (nyttig for diff og sum)
-          --watch               Hot reload: kjør på nytt når filteret eller shaders/core lagres (Ctrl+C avslutter)
-          --filters-dir <sti>   Alternativ filtermappe (standard: filters/ i repoet)
-          --gpu auto|<n>        Velg GPU (standard auto = høyytelses-GPU)
-          --list-gpus           Vis GPU-er med indeks og avslutt
-          --ffmpeg-dir <sti>    Mappe med avcodec-61.dll osv. (standard: ffmpeg/ fra get-ffmpeg.ps1)
+    Options:
+      -o, --output <path>       PNG to write (required)
+      -f, --filter <name[:p=v]> Filter with parameters. Several -f make a chain: each step gets the previous
+                                step's Output as Input. Example: -f diff:gain=4 -f lagfun:decay=0.9
+          --list-filters        Show the filters in filters/ with parameters, and check that they compile
+          --dump-shader <name>  Print the whole source that gets compiled (preamble + filter) with line numbers
+          --stride <n>          Every n-th frame (default 1 = all)
+          --max-frames <n>      Stop after n processed frames (quick practice)
+          --preview-every <n>   Write the -o image every n-th frame while running (the image viewer updates as it runs)
+          --video-out <f.mp4>   Write the Output of every frame as video (needs ffmpeg with libx264 on PATH)
+          --exposure <stops>    Exposure before encode: linear × 2^stops (default 0)
+          --normalize           Scale so that the largest value in R/G/B becomes 1.0 (useful for diff and sums)
+          --watch               Hot reload: run again when a filter or shaders/core is saved (Ctrl+C exits)
+          --filters-dir <path>  Alternative filter folder (default: filters/ in the repo)
+          --gpu auto|<n>        Pick the GPU (default auto = the high-performance GPU)
+          --list-gpus           List GPUs with their index and exit
+          --ffmpeg-dir <path>   Folder with avcodec-61.dll etc. (default: ffmpeg/ from get-ffmpeg.ps1)
     """);

@@ -6,12 +6,12 @@ using ID3D11Texture2D = Vortice.Direct3D11.ID3D11Texture2D;
 
 namespace ShaderLab.Gpu;
 
-/// <summary>Ett steg i kjeden slik det er gitt på kommandolinjen: filteret og ferdigpakkede parametere.</summary>
+/// <summary>One step in the chain as given on the command line: the filter and its packed parameters.</summary>
 internal sealed record ChainStep(FilterInfo Filter, byte[] ParamBytes);
 
 /// <summary>
-/// Per frame: decode.hlsl → steg 1 → steg 2 → … (hvert med state som ping-pong) → siste stegs Output.
-/// Til slutt Finalize i kjederekkefølge, encode.hlsl og tilbakelesing. Alt mellom decode og encode er lineær RGB i RGBA32F.
+/// Per frame: decode.hlsl → step 1 → step 2 → … (each with state as ping-pong) → the last step's Output.
+/// At the end Finalize in chain order, encode.hlsl and read-back. Everything between decode and encode is linear RGB in RGBA32F.
 /// </summary>
 internal sealed unsafe class Pipeline : IDisposable
 {
@@ -29,10 +29,10 @@ internal sealed unsafe class Pipeline : IDisposable
     public readonly int Width, Height;
     public long FramesProcessed { get; private set; }
 
-    /// <summary>Verdien filtrene ser som FrameCount: antall frames som skal behandles hvis det er kjent, ellers 0.</summary>
+    /// <summary>The value the filters see as FrameCount: the number of frames to process if known, otherwise 0.</summary>
     public uint FrameCount { get; set; }
 
-    // Pipeline eier alle sine GPU-ressurser selv (ikke Device), så --watch kan lage en ny for hver kjøring uten å lekke.
+    // Pipeline owns all its GPU resources itself (not Device), so --watch can create a new one for every run without leaking.
     private readonly List<IDisposable> _owned = [];
 
     private readonly Device _gpu;
@@ -42,7 +42,7 @@ internal sealed unsafe class Pipeline : IDisposable
     private readonly ID3D11Buffer _frameInfo, _encodeParams;
     private readonly ID3D11Buffer _packed, _staging;
     private readonly ID3D11UnorderedAccessView _packedUav;
-    private ID3D11Texture2D? _floatStaging; // lages ved første MaxValue()
+    private ID3D11Texture2D? _floatStaging; // created on the first MaxValue()
 
     private bool _finalized;
     private int _lastFileIndex = -1;
@@ -52,16 +52,16 @@ internal sealed unsafe class Pipeline : IDisposable
 
     public Pipeline(Device gpu, int width, int height, string coreDir, IReadOnlyList<ChainStep> chain)
     {
-        if (chain.Count == 0) throw new ArgumentException("Kjeden må ha minst ett filter.");
+        if (chain.Count == 0) throw new ArgumentException("The chain needs at least one filter.");
         _gpu = gpu;
         Width = width;
         Height = height;
 
         gpu.RequireFormat(Format.R32G32B32A32_Float,
             FormatSupport.Texture2D | FormatSupport.ShaderLoad | FormatSupport.TypedUnorderedAccessView,
-            "lineær float-state (RGBA32F)");
+            "linear float state (RGBA32F)");
 
-        // Kompiler alt først: en feil i et filter skal ikke ha laget teksturer som må ryddes.
+        // Compile everything first: an error in a filter should not have created textures that need cleaning up.
         var compiled = chain.Select(s => (s, Accumulate: FilterLoader.Compile(s.Filter, "Accumulate", coreDir),
             Finalize: FilterLoader.CompileFinalize(s.Filter, coreDir))).ToList();
         var encode = ShaderCompiler.CompileFile(Path.Combine(coreDir, "encode.hlsl"), "Encode", coreDir);
@@ -90,12 +90,12 @@ internal sealed unsafe class Pipeline : IDisposable
         }
     }
 
-    /// <summary>Konverterer én dekodet frame og kjører den gjennom hele kjeden.</summary>
+    /// <summary>Converts one decoded frame and runs it through the whole chain.</summary>
     public void Accumulate(HwFrame frame, int fileIndex)
     {
         _converter.Convert(frame);
 
-        // Time er 0 når tidsstempelet mangler. Dt er 0 for første frame i hver fil.
+        // Time is 0 when the timestamp is missing. Dt is 0 for the first frame in each file.
         double time = double.IsNaN(frame.Time) ? 0 : frame.Time;
         double dt = fileIndex == _lastFileIndex && !double.IsNaN(frame.Time) ? time - _lastTime : 0;
         SetFrameInfo((uint)FramesProcessed, fileIndex, time, dt);
@@ -114,8 +114,8 @@ internal sealed unsafe class Pipeline : IDisposable
     }
 
     /// <summary>
-    /// Kjører Finalize i kjederekkefølge én gang etter siste frame, med FrameIndex = antall behandlede frames.
-    /// Hvert steg får forrige stegs Output (etter dens Finalize) som Input. Steg uten Finalize beholder sin Output.
+    /// Runs Finalize in chain order once after the last frame, with FrameIndex = the number of processed frames.
+    /// Each step gets the previous step's Output (after its Finalize) as Input. Steps without Finalize keep their Output.
     /// </summary>
     public void Finish()
     {
@@ -147,8 +147,8 @@ internal sealed unsafe class Pipeline : IDisposable
     }
 
     /// <summary>
-    /// Største endelige verdi i R, G eller B i siste stegs Output (lineært), for --normalize. Leser tilbake hele
-    /// float-bildet; det koster noen millisekunder. NaN og ±inf hoppes over.
+    /// The largest finite value in R, G or B of the last step's Output (linear), for --normalize. Reads back the whole
+    /// float image; that costs a few milliseconds. NaN and ±inf are skipped.
     /// </summary>
     public float MaxValue()
     {
@@ -173,7 +173,7 @@ internal sealed unsafe class Pipeline : IDisposable
         }
     }
 
-    /// <summary>Kjører encode.hlsl på siste stegs Output (lineær × <paramref name="scale"/> → 8-bit sRGB) og leser tilbake RGB24.</summary>
+    /// <summary>Runs encode.hlsl on the last step's Output (linear × <paramref name="scale"/> → 8-bit sRGB) and reads back RGB24.</summary>
     public byte[] ReadRgb24(float scale = 1f)
     {
         var p = new EncodeParams { Width = (uint)Width, Height = (uint)Height, Scale = scale };

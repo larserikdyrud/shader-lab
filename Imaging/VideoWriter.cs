@@ -4,8 +4,8 @@ using System.Globalization;
 namespace ShaderLab.Imaging;
 
 /// <summary>
-/// Skriver RGB24-frames til en video ved å sende dem rått til ffmpeg-programmet (stdin). FFmpeg-DLL-ene programmet
-/// dekoder med er et LGPL-bygg uten x264, så vi bruker ffmpeg på PATH (det samme make-clips.ps1 krever).
+/// Writes RGB24 frames to a video by sending them raw to the ffmpeg program (stdin). The FFmpeg DLLs the program
+/// decodes with are an LGPL build without x264, so we use ffmpeg on PATH (the same one make-clips.ps1 needs).
 /// </summary>
 internal sealed class VideoWriter : IDisposable
 {
@@ -17,8 +17,8 @@ internal sealed class VideoWriter : IDisposable
 
     public long Frames { get; private set; }
 
-    /// <param name="fps">Bildefrekvens i utdata (inputens, delt på --stride).</param>
-    /// <param name="ffmpegExe">ffmpeg-programmet; standard er «ffmpeg» fra PATH.</param>
+    /// <param name="fps">Output frame rate (the input's, divided by --stride).</param>
+    /// <param name="ffmpegExe">The ffmpeg program; default is "ffmpeg" from PATH.</param>
     public VideoWriter(string path, int width, int height, double fps, string ffmpegExe = "ffmpeg")
     {
         _path = path;
@@ -30,7 +30,7 @@ internal sealed class VideoWriter : IDisposable
             UseShellExecute = false,
             CreateNoWindow = true
         };
-        // yuv420p krever partall i begge dimensjoner; pad legger på én svart kolonne/rad ved behov.
+        // yuv420p needs even dimensions; pad adds one black column/row when needed.
         foreach (string arg in new[]
         {
             "-hide_banner", "-v", "error", "-y",
@@ -43,15 +43,15 @@ internal sealed class VideoWriter : IDisposable
 
         try
         {
-            _ffmpeg = Process.Start(psi) ?? throw new InvalidOperationException("Kunne ikke starte ffmpeg.");
+            _ffmpeg = Process.Start(psi) ?? throw new InvalidOperationException("Could not start ffmpeg.");
         }
         catch (System.ComponentModel.Win32Exception)
         {
             throw new InvalidOperationException(
-                $"Fant ikke '{ffmpegExe}'. --video-out trenger ffmpeg-programmet (med libx264) på PATH.");
+                $"Could not find '{ffmpegExe}'. --video-out needs the ffmpeg program (with libx264) on PATH.");
         }
         _stdin = _ffmpeg.StandardInput.BaseStream;
-        _stderr = _ffmpeg.StandardError.ReadToEndAsync(); // les hele tiden, ellers kan ffmpeg blokkere på full pipe
+        _stderr = _ffmpeg.StandardError.ReadToEndAsync(); // read continuously, otherwise ffmpeg can block on a full pipe
     }
 
     public void Write(byte[] rgb24)
@@ -63,13 +63,13 @@ internal sealed class VideoWriter : IDisposable
         }
         catch (IOException)
         {
-            // ffmpeg har avsluttet (for eksempel ugyldig sti); Close gir den egentlige feilmeldingen.
+            // ffmpeg has exited (for example an invalid path); Close gives the real error message.
             Close();
             throw;
         }
     }
 
-    /// <summary>Avslutter videoen og venter på ffmpeg. Kaster med ffmpeg sin melding hvis den feilet.</summary>
+    /// <summary>Finishes the video and waits for ffmpeg. Throws with ffmpeg's message if it failed.</summary>
     public void Close()
     {
         if (_closed) return;
@@ -78,13 +78,13 @@ internal sealed class VideoWriter : IDisposable
         _ffmpeg.WaitForExit();
         string errors = _stderr.Result.Trim();
         if (_ffmpeg.ExitCode != 0)
-            throw new InvalidOperationException($"ffmpeg feilet da {_path} ble skrevet (exit {_ffmpeg.ExitCode}): {errors}");
+            throw new InvalidOperationException($"ffmpeg failed while writing {_path} (exit {_ffmpeg.ExitCode}): {errors}");
     }
 
     public void Dispose()
     {
         try { Close(); }
-        catch (InvalidOperationException) { } // Dispose skal ikke kaste; Close kalles eksplisitt når feilen betyr noe
+        catch (InvalidOperationException) { } // Dispose must not throw; Close is called explicitly when the error matters
         _ffmpeg.Dispose();
     }
 }

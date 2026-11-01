@@ -7,27 +7,27 @@ using Vortice.Direct3D;
 namespace ShaderLab.Gpu;
 
 /// <summary>
-/// Hvordan en generert kilde henger sammen: <paramref name="PreambleLines"/> linjer preamble (inkludert <c>#line</c>)
-/// fulgt av brukerens fil. Brukes til å peke feil i preamblen ut som [kjerne] og vise kildelinjer fra brukerens fil.
+/// How a generated source fits together: <paramref name="PreambleLines"/> lines of preamble (including <c>#line</c>)
+/// followed by the user's file. Used to mark errors in the preamble as [core] and to show source lines from the user's file.
 /// </summary>
 internal sealed record GeneratedSource(int PreambleLines, string UserPath, string UserSource);
 
-/// <summary>Kompilerer HLSL compute shadere mens programmet kjører (d3dcompiler_47 via Vortice.D3DCompiler).</summary>
+/// <summary>Compiles HLSL compute shaders while the program runs (d3dcompiler_47 via Vortice.D3DCompiler).</summary>
 internal static class ShaderCompiler
 {
-    /// <summary>Kildenavnet til generert kode. Feil som peker hit, ligger i preamblen.</summary>
+    /// <summary>The source name of generated code. Errors that point here are in the preamble.</summary>
     public const string GeneratedName = "shaderlab-gen.hlsl";
 
-    // fil(linje,kolonne[-slutt]): error|warning Xnnnn: melding
+    // file(line,column[-end]): error|warning Xnnnn: message
     private static readonly Regex Diagnostic = new(@"^(?<file>.*?)\((?<line>\d+),(?<col>\d+)(?:-(?<end>\d+))?\): (?<kind>error|warning) (?<code>X\d+): (?<msg>.*)$");
 
-    /// <summary>Kompilerer en fil, for eksempel shaders/core/decode.hlsl. <c>#include</c> løses i <paramref name="includeDir"/>.</summary>
+    /// <summary>Compiles a file, for example shaders/core/decode.hlsl. <c>#include</c> is resolved in <paramref name="includeDir"/>.</summary>
     public static ReadOnlyMemory<byte> CompileFile(string path, string entryPoint, string includeDir) =>
         Compile(File.ReadAllText(path), entryPoint, Paths.Display(path), includeDir);
 
     /// <summary>
-    /// Kompilerer <paramref name="entryPoint"/> til cs_5_0-bytekode. Feil kastes som <see cref="ShaderCompileException"/>
-    /// i kompilatorformat med kildelinje og ^-markør. Advarsler skrives til stderr.
+    /// Compiles <paramref name="entryPoint"/> to cs_5_0 bytecode. Errors are thrown as <see cref="ShaderCompileException"/>
+    /// in compiler format with the source line and a ^ marker. Warnings are written to stderr.
     /// </summary>
     public static ReadOnlyMemory<byte> Compile(string source, string entryPoint, string sourceName, string includeDir,
         GeneratedSource? generated = null)
@@ -43,12 +43,12 @@ internal static class ShaderCompiler
             if (result.Failure || code == null)
             {
                 if (messages.Contains("X3501") && messages.Contains($"'{entryPoint}'"))
-                    throw new ShaderCompileException($"{where}: fant ikke entry point '{entryPoint}'.", missingEntryPoint: true);
+                    throw new ShaderCompileException($"{where}: entry point '{entryPoint}' not found.", missingEntryPoint: true);
                 throw new ShaderCompileException(
-                    $"Kompilering av {where} ({entryPoint}) feilet:{Environment.NewLine}{Format(messages, generated, includeDir)}");
+                    $"Compiling {where} ({entryPoint}) failed:{Environment.NewLine}{Format(messages, generated, includeDir)}");
             }
             if (messages.Length > 0)
-                Console.Error.WriteLine($"Advarsler fra {where} ({entryPoint}):{Environment.NewLine}{Format(messages, generated, includeDir)}");
+                Console.Error.WriteLine($"Warnings from {where} ({entryPoint}):{Environment.NewLine}{Format(messages, generated, includeDir)}");
             return code.AsBytes();
         }
         finally
@@ -59,13 +59,13 @@ internal static class ShaderCompiler
     }
 
     /// <summary>
-    /// Skriver om kompilatorens meldinger: korte stier, feil i preamblen merket [kjerne], og kildelinjen med ^ under kolonnen.
-    /// Formatet <c>fil(linje,kolonne): error Xnnnn: ...</c> beholdes, så VS Code og terminaler kan klikke seg til linjen.
+    /// Rewrites the compiler's messages: short paths, errors in the preamble marked [core], and the source line with ^ under the column.
+    /// The format <c>file(line,column): error Xnnnn: ...</c> is kept, so VS Code and terminals can jump to the line.
     /// </summary>
     public static string Format(string messages, GeneratedSource? generated, string? includeDir = null)
     {
         var sb = new StringBuilder();
-        string? lastLocation = null; // følgefeil på samme sted viser ikke kildelinjen på nytt
+        string? lastLocation = null; // follow-up errors at the same place do not repeat the source line
         foreach (string raw in messages.Split('\n'))
         {
             string line = raw.TrimEnd('\r');
@@ -88,10 +88,10 @@ internal static class ShaderCompiler
             {
                 if (lineNo <= generated.PreambleLines)
                 {
-                    sb.AppendLine($"[kjerne] {GeneratedName}({lineNo},{col}): {rest}  (i preamblen; se --dump-shader)");
+                    sb.AppendLine($"[core] {GeneratedName}({lineNo},{col}): {rest}  (in the preamble; see --dump-shader)");
                     continue;
                 }
-                // Fallback hvis #line ikke slo inn: regn om til linje i brukerens fil.
+                // Fallback if #line did not take effect: convert to a line in the user's file.
                 lineNo -= generated.PreambleLines;
                 display = Paths.Display(generated.UserPath);
                 sourceLine = LineOf(generated.UserSource, lineNo);
@@ -103,7 +103,7 @@ internal static class ShaderCompiler
             }
             else
             {
-                // Include-filer rapporteres med navnet fra #include; let i include-mappen.
+                // Include files are reported with the name from #include; look in the include folder.
                 if (!Path.IsPathRooted(file) && !File.Exists(file) && includeDir != null && File.Exists(Path.Combine(includeDir, file)))
                     file = Path.Combine(includeDir, file);
                 display = Path.IsPathRooted(file) ? Paths.Display(file) : file.Replace('\\', '/');
@@ -116,7 +116,7 @@ internal static class ShaderCompiler
             lastLocation = location;
             if (!repeat && sourceLine != null && col >= 1 && col <= sourceLine.Length + 1)
             {
-                // Behold tabulatorer foran markøren, så ^ havner under riktig tegn uansett tabulatorbredde.
+                // Keep tabs before the marker, so ^ ends up under the right character whatever the tab width.
                 string pad = new(sourceLine.Take(col - 1).Select(c => c == '\t' ? '\t' : ' ').ToArray());
                 sb.AppendLine("    " + sourceLine);
                 sb.AppendLine("    " + pad + new string('^', Math.Max(1, end - col + 1)));
@@ -137,13 +137,13 @@ internal static class ShaderCompiler
         catch (ArgumentException) { return false; }
     }
 
-    /// <summary>Løser <c>#include "x.hlsli"</c> mot én mappe (shaders/core).</summary>
+    /// <summary>Resolves <c>#include "x.hlsli"</c> against one folder (shaders/core).</summary>
     private sealed class DirectoryInclude(string directory) : CallbackBase, Include
     {
         public Stream Open(IncludeType type, string fileName, Stream? parentStream)
         {
             string path = Path.Combine(directory, fileName);
-            if (!File.Exists(path)) throw new FileNotFoundException($"Fant ikke include-filen '{fileName}' i {Paths.Display(directory)}.", path);
+            if (!File.Exists(path)) throw new FileNotFoundException($"Include file '{fileName}' not found in {Paths.Display(directory)}.", path);
             return File.OpenRead(path);
         }
 
@@ -153,6 +153,6 @@ internal static class ShaderCompiler
 
 internal sealed class ShaderCompileException(string message, bool missingEntryPoint = false) : Exception(message)
 {
-    /// <summary>True når feilen bare er at entry pointet ikke finnes (brukes til å oppdage valgfri Finalize).</summary>
+    /// <summary>True when the only error is that the entry point does not exist (used to detect an optional Finalize).</summary>
     public bool MissingEntryPoint { get; } = missingEntryPoint;
 }

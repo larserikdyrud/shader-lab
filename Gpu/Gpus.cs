@@ -3,9 +3,9 @@ using Vortice.DXGI;
 namespace ShaderLab.Gpu;
 
 /// <summary>
-/// GPU-valg. Indeksene er DXGI sin EnumAdapters1-rekkefølge, den samme FFmpeg bruker for D3D11VA.
-/// Uten oppgitt enhet tar FFmpeg adapter 0 (den som driver hovedskjermen, ofte iGPU-en), så "auto"
-/// velger i stedet den Windows regner som høyytelses-GPU.
+/// GPU selection. The indices are DXGI's EnumAdapters1 order, the same FFmpeg uses for D3D11VA.
+/// Without a given device FFmpeg takes adapter 0 (the one driving the main display, often the iGPU), so "auto"
+/// instead picks the one Windows considers the high-performance GPU.
 /// </summary>
 static class Gpus
 {
@@ -43,7 +43,7 @@ static class Gpus
         }
     }
 
-    /// <summary>"auto" eller et tall fra --list-gpus. Skriver ut hvilken GPU som brukes; kaster ArgumentException ved ugyldig valg.</summary>
+    /// <summary>"auto" or a number from --list-gpus. Prints which GPU is used; throws ArgumentException for an invalid choice.</summary>
     public static int Select(string choice)
     {
         var all = All();
@@ -51,9 +51,9 @@ static class Gpus
         if (choice.Equals("auto", StringComparison.OrdinalIgnoreCase))
             index = Auto(all);
         else if (!int.TryParse(choice, out index) || index < 0 || index >= all.Count)
-            throw new ArgumentException($"Ugyldig --gpu '{choice}': bruk auto eller 0-{all.Count - 1} (se --list-gpus)");
+            throw new ArgumentException($"Invalid --gpu '{choice}': use auto or 0-{all.Count - 1} (see --list-gpus)");
         else if (all[index].Flags.HasFlag(AdapterFlags.Software))
-            throw new ArgumentException($"GPU {index} ({all[index].Description}) er en software-adapter uten videodekoder");
+            throw new ArgumentException($"GPU {index} ({all[index].Description}) is a software adapter without a video decoder");
         Console.WriteLine($"GPU {index}: {all[index].Description}");
         return index;
     }

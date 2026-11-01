@@ -3,15 +3,15 @@ using FFmpeg.AutoGen;
 
 namespace ShaderLab.Video;
 
-/// <summary>Laster FFmpeg-DLL-ene og gjør feilkoder om til lesbar tekst.</summary>
+/// <summary>Loads the FFmpeg DLLs and turns error codes into readable text.</summary>
 internal static unsafe class Ffmpeg
 {
-    /// <summary>Finner DLL-ene (<paramref name="explicitDir"/>, ellers ffmpeg/ fra get-ffmpeg.ps1) og laster dem.</summary>
+    /// <summary>Finds the DLLs (<paramref name="explicitDir"/>, otherwise ffmpeg/ from get-ffmpeg.ps1) and loads them.</summary>
     public static void Initialize(string? explicitDir)
     {
         ffmpeg.RootPath = FindDirectory(explicitDir);
 
-        // Gi en tydelig DllNotFound/EntryPointNotFound i stedet for FFmpeg.AutoGen sin generiske feil.
+        // Give a clear DllNotFound/EntryPointNotFound instead of FFmpeg.AutoGen's generic error.
         DynamicallyLoadedBindings.ThrowErrorIfFunctionNotFound = true;
         DynamicallyLoadedBindings.Initialize();
         ffmpeg.av_log_set_level(ffmpeg.AV_LOG_ERROR);
@@ -27,17 +27,17 @@ internal static unsafe class Ffmpeg
     {
         byte* buffer = stackalloc byte[256];
         ffmpeg.av_strerror(errorCode, buffer, 256);
-        return Marshal.PtrToStringAnsi((nint)buffer) ?? $"feil {errorCode}";
+        return Marshal.PtrToStringAnsi((nint)buffer) ?? $"error {errorCode}";
     }
 
     private static string FindDirectory(string? explicitDir)
     {
         if (explicitDir != null)
             return HasDlls(explicitDir) ? explicitDir
-                : throw new DirectoryNotFoundException($"Fant ingen avcodec-*.dll i '{explicitDir}'.");
+                : throw new DirectoryNotFoundException($"No avcodec-*.dll found in '{explicitDir}'.");
 
         return Paths.FindUp("ffmpeg", HasDlls) ?? throw new DirectoryNotFoundException(
-            "Fant ikke FFmpeg-DLL-ene. Kjør get-ffmpeg.ps1 i repoet, eller oppgi --ffmpeg-dir.");
+            "Could not find the FFmpeg DLLs. Run get-ffmpeg.ps1 in the repo, or pass --ffmpeg-dir.");
     }
 
     private static bool HasDlls(string dir) => Directory.Exists(dir) && Directory.GetFiles(dir, "avcodec-*.dll").Length > 0;

@@ -1,15 +1,15 @@
-// encode.hlsl – kjernepass: filterets Output (lineær RGBA32F) → 8-bit sRGB, pakket for tilbakelesing.
-// Her, og bare her, klippes verdiene til 0..1.
+// encode.hlsl – core pass: the filter's Output (linear RGBA32F) → 8-bit sRGB, packed for read-back.
+// Here, and only here, values are clipped to 0..1.
 
 #include "common.hlsli"
 
 Texture2D<float4>        Image : register(t0);
-RWStructuredBuffer<uint> Out   : register(u0); // én uint per piksel: R | G << 8 | B << 16
+RWStructuredBuffer<uint> Out   : register(u0); // one uint per pixel: R | G << 8 | B << 16
 
 cbuffer EncodeParams : register(b0)
 {
     uint2 Size;
-    float Scale;    // 2^exposure, ganger 1/maks med --normalize; 1 = uendret
+    float Scale;    // 2^exposure, times 1/max with --normalize; 1 = unchanged
     uint  _pad;
 };
 
