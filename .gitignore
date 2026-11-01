@@ -1,0 +1,25 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+
+# FFmpeg-DLL-er hentes med get-ffmpeg.ps1
+ffmpeg/
+
+# Lokale mapper (kladd, oppslag) som ikke hører til prosjektet
+_*/
+
+# Utdata fra øvingskjøringer
+ut*.png
+
+# Testklipp lages med tests/make-clips.ps1; bare dot.mp4 ligger i repoet
+tests/clips/*
+!tests/clips/dot.mp4
+
+# Faktiske bilder fra tests/run-tests.ps1
+tests/out/
+
+# Video fra øvingskjøringer
+ut*.mp4
+*.png.tmp
